@@ -1,0 +1,179 @@
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>  
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cowin | Checker</title>
+</head>
+<style>
+    .data-div {
+        padding:18px!important;
+    }
+    .card-panel {
+        border: 1px solid #ccc2c2!important;
+    }
+    td, th {
+        border: 1px solid darkgrey!important;
+    }
+    .btn-div, .time-div {
+        text-align:center;
+        margin-top: 18px;
+    }
+</style>
+<body>
+    <header></header>
+    <main class="grey lighten-4">
+        <section>
+            <!-- <div class="row">
+                <div class="col s6 data grey lighten-3"></div>
+            </div> -->
+            <div class="row">
+                <div class="col s12 btn-div">
+                    <a class="waves-effect waves-light btn stop-refresh">stop</a>
+                </div>
+                <div class="col s12 time-div"></div>
+                <div class="col data-div">
+                    <div class="card-panel grey lighten-2 data"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer>
+
+    </footer>
+    <script>
+        $(document).ready(function() {
+            var refreshStatus = true;
+            var refreshTime = 6;
+            $('select').formSelect();
+
+            apiCallDriver();
+            updateTime();
+
+            function apiCallDriver() {
+                callCowinAPI();
+                console.log(refreshStatus);
+                refreshTime = 6;
+                if (refreshStatus) {
+                    setTimeout(() => {
+                        toast('Data updated successfully!');
+                        apiCallDriver();
+                    }, refreshTime * 1000);
+                }
+            }
+
+            function updateTime() {
+                refreshTime--;
+                if (refreshStatus) {
+                    setTimeout(() => {
+                        $('.time-div').html(`<h3><strong>Refreshing page in ${refreshTime} seconds!</strong></h3>`);
+                        updateTime();
+                    }, 1000);
+                } else {
+                    $('.time-div').html(`<h3><strong>Refreshing page in &#8734; seconds!</strong></h3>`);
+                }
+            }
+
+            $('.stop-refresh').on('click', function(e) {
+                e.preventDefault();
+                refreshStatus = !refreshStatus;
+                if (!refreshStatus) { // stop updation
+                    $(this).html('refresh');
+                    // $('.time-div').html(`<h3><strong>Refreshing page in &#8734; seconds!</strong></h3>`);
+                } else { // start updation
+                    refreshTime = 6;
+                    $(this).html('stop');
+                    apiCallDriver();
+                    updateTime();
+                    console.log('end');
+                }
+            });
+
+            function filterResponse(data) {
+                // let cowinData = JSON.parse(data);
+                let headings = ["#", "name", "Address"];
+                let nextDays = [];
+                for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+                    nextDays.push(fetchDate(dayOffset));
+                }
+                let cowinData = data;
+                let availableCenters = `<table class="striped centered"><thead><tr>`;
+                headings.forEach((heading) => {
+                    availableCenters += `<th>${heading}</th>`;
+                });
+                nextDays.forEach((heading) => {
+                    availableCenters += `<th>${heading}</th>`;
+                });
+                availableCenters += '</tr></thead><tbody>';
+                cowinData = cowinData.centers;
+                let prevDate = -1;
+                let slotDate = 0;
+                let row = 0;
+                cowinData.forEach((obj) => {
+                    if (obj.fee_type == "Free") {
+                        ++row;
+                        availableCenters += 
+                            `<tr>
+                                <td>${row}</td>
+                                <td>${obj.name}</td>
+                                <td>${obj.address}</td>`;
+                        obj.sessions.forEach((center) => {
+                            if (center.min_age_limit == 18 /*&& center.available_capacity == 0*/) {
+                                slotDate = nextDays.indexOf(center.date);
+                                prevDate = slotDate;
+                                for (let skip = prevDate + 1; skip < slotDate; skip++) {
+                                    availableCenters += '<td><i class="material-icons valign red-text">close</i></td>';
+                                }
+                                if (center.available_capacity > 0) {
+                                    availableCenters += `<td><span class="new badge green" data-badge-caption="">${center.available_capacity}<span></td>`;
+                                } else {
+                                    availableCenters += `<td><span class="new badge red" data-badge-caption="">${center.available_capacity}<span></td>`;
+                                }
+                            }
+                        });
+                        for (let skip = prevDate + 1; skip < nextDays.length; skip++) {
+                            availableCenters += '<td><i class="material-icons valign red-text">cancel</i></td>';
+                        }
+                        availableCenters += '</tr>';
+                        prevDate = -1;
+                        slotDate = 0;
+                    } 
+                });
+                availableCenters += '</tbody></table>';
+                $('.data').html(availableCenters);
+            }
+
+            function fetchDate(nextDayOffset) {
+                let date = new Date();
+                date.setDate(new Date().getDate() + nextDayOffset);
+                let dd = String(date.getDate()).padStart(2, '0');
+                let mm = String(date.getMonth() + 1).padStart(2, '0'); //January is 0!
+                let yyyy = date.getFullYear();
+                return date = dd + '-' + mm + '-' + yyyy;
+            }
+
+            function callCowinAPI() {
+                let currentDate = new Date();
+                $.ajax({
+                //    type:"POST",
+                   url: "https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict",
+                   data:{district_id:670, date:fetchDate(0)},
+                   success:function(data) {
+                        filterResponse(data);
+                   },
+                   error:function(data) {
+                   }
+                });
+            }
+
+            function toast(msg) {
+                M.toast({html: msg});
+            }
+        });
+    </script>
+</body>
+</html>
