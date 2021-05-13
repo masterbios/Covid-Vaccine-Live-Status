@@ -1,4 +1,4 @@
-<html lang="en">
+<html lang="en" class="grey lighten-4">
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -16,32 +16,55 @@
     }
     .card-panel {
         border: 1px solid #ccc2c2!important;
+        overflow-x: auto;
     }
-    td, th {
-        border: 1px solid darkgrey!important;
+    main {
+        flex: 1 0 auto;
     }
-    .btn-div, .time-div {
+    .btn-div, /*.time-div*/ {
         text-align:center;
         margin-top: 18px;
     }
     .slots {
         margin-bottom: 10px;
     }
+    .hidden {
+        display: none;
+    }
+    .stop-refresh {
+        width:100px;
+    }
 </style>
 <body>
     <header></header>
-    <main class="grey lighten-4">
+    <main>
         <section>
-            <!-- <div class="row">
-                <div class="col s6 data grey lighten-3"></div>
-            </div> -->
-            <div class="row">
-                <div class="col s12 btn-div">
-                    <a class="waves-effect waves-light btn stop-refresh">stop</a>
+            <div class="states-selector">
+                <div class="row">
+                    <div class="col s12 m8 l6 xl6 offset-m2 offset-l3 offset-xl3">
+                        <div class="card">
+                            <div class="card-content white-text">
+                                <div class="input-field col s12">
+                                    <select id="states"></select>
+                                    <label>States</label>
+                                </div>
+                                <div class="input-field col s12">
+                                    <select id="cities"></select>
+                                    <label>City</label>
+                                </div>
+                                <div class="clearfix"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col s12 time-div"></div>
-                <div class="col data-div">
-                    <div class="card-panel grey lighten-2 data"></div>
+            </div>
+            <div class="row table-data hidden">
+                <!-- <div class="col s12 btn-div">
+                    <a class="waves-effect waves-light btn stop-refresh">stop</a>
+                </div> -->
+                <!-- <div class="col s12 time-div"></div> -->
+                <div class="col s12 m12 l10 xl10 offset-l1 offset-xl1 data-div">
+                    <div class="card-panel data"></div>
                 </div>
             </div>
         </section>
@@ -56,16 +79,17 @@
             var minimumAgeLimit = 18;
 
             $('select').formSelect();
-            apiCallDriver();
-            updateTime();
+            // apiCallDriver();
+            // updateTime();
+            getStates();
 
-            function apiCallDriver() {
-                callCowinAPI();
+            function apiCallDriver(cityId) {
+                callCowinAPI(cityId);
                 refreshTime = 6;
                 if (refreshStatus) {
                     setTimeout(() => {
                         toast('Data updated successfully!');
-                        apiCallDriver();
+                        apiCallDriver(cityId);
                     }, refreshTime * 1000);
                 }
             }
@@ -74,15 +98,29 @@
                 refreshTime--;
                 if (refreshStatus) {
                     setTimeout(() => {
-                        $('.time-div').html(`<h3><strong>Refreshing page in ${refreshTime} seconds!</strong></h3>`);
+                        // $('.time-div').html(`<h3><strong>Refreshing page in ${refreshTime} seconds!</strong></h3>`);
+                        $('.time-div').text(`Next refresh : ${refreshTime} sec`);
                         updateTime();
                     }, 1000);
                 } else {
-                    $('.time-div').html(`<h3><strong>Refreshing page in &#8734; seconds!</strong></h3>`);
+                    // $('.time-div').html(`<h3><strong>Refreshing page in &#8734; seconds!</strong></h3>`);
+                    $('.time-div').text(`Next refresh : ∞ sec`);
                 }
             }
 
-            $('.stop-refresh').on('click', function(e) {
+            $('#states').on('change', function(e) {
+                let stateId = this.value;
+                getCities(stateId);
+            });
+
+            $('#cities').on('change', function(e) {
+                $('.table-data').addClass('hidden');
+                let cityId = this.value;
+                apiCallDriver(cityId);
+                updateTime();
+            });
+
+            $('body').on('click', '.stop-refresh', function(e) {
                 e.preventDefault();
                 refreshStatus = !refreshStatus;
                 if (!refreshStatus) { // stop updation
@@ -90,7 +128,7 @@
                 } else { // start updation
                     refreshTime = 6;
                     $(this).html('stop');
-                    apiCallDriver();
+                    apiCallDriver($('#cities').val());
                     updateTime();
                 }
             });
@@ -102,7 +140,7 @@
                     nextDays.push(fetchDate(dayOffset));
                 }
                 let cowinData = data;
-                let availableCenters = `<div class="slots right"></div>
+                let availableCenters = `<a class="waves-effect waves-light btn stop-refresh">stop</a><div class="slots right"></div>
                                         <table class="striped centered"><thead><tr>`;
                 headings.forEach((heading) => {
                     availableCenters += `<th>${heading}</th>`;
@@ -118,20 +156,24 @@
                 let availableSlots = 0;
                 cowinData.forEach((obj) => {
                     if (obj.fee_type == "Free") {
-                        ++row;
-                        availableCenters += 
-                            `<tr>
-                                <td>${row}</td>
-                                <td>${obj.name}</td>
-                                <td>${obj.address}</td>`;
+                        let isCenterAdded = false;
                         obj.sessions.forEach((center) => {
                             if (center.min_age_limit == minimumAgeLimit) {
+                                if (!isCenterAdded) {
+                                    ++row;
+                                    availableCenters += 
+                                        `<tr>
+                                            <td>${row}</td>
+                                            <td>${obj.name}</td>
+                                            <td>${obj.address}</td>`; 
+                                    isCenterAdded = true;
+                                }       
                                 if (center.available_capacity > 0) availableSlots++;
                                 slotDate = nextDays.indexOf(center.date);
-                                prevDate = slotDate;
                                 for (let skip = prevDate + 1; skip < slotDate; skip++) {
-                                    availableCenters += '<td><i class="material-icons valign red-text">close</i></td>';
+                                    availableCenters += '<td><i class="material-icons valign red-text">cancel</i></td>';
                                 }
+                                prevDate = slotDate;
                                 if (center.available_capacity > 0) {
                                     availableCenters += `<td><span class="new badge green" data-badge-caption="">${center.available_capacity}<span></td>`;
                                 } else {
@@ -139,8 +181,10 @@
                                 }
                             }
                         });
-                        for (let skip = prevDate + 1; skip < nextDays.length; skip++) {
-                            availableCenters += '<td><i class="material-icons valign red-text">cancel</i></td>';
+                        if (isCenterAdded) {
+                            for (let skip = prevDate + 1; skip < nextDays.length; skip++) {
+                                availableCenters += '<td><i class="material-icons valign red-text">cancel</i></td>';
+                            }
                         }
                         availableCenters += '</tr>';
                         prevDate = -1;
@@ -148,8 +192,9 @@
                     } 
                 });
                 availableCenters += '</tbody></table>';
+                $('.table-data').removeClass('hidden');
                 $('.data').html(availableCenters);
-                $('.slots').html(`Available slots: ${availableSlots}`);
+                $('.slots').html(`<span class="new badge blue" data-badge-caption="">Available slots: ${availableSlots}</span><span class="new badge orange" data-badge-caption=""> City : ${$('#cities option:selected').text()}</span><span class="new badge teal time-div" data-badge-caption="">Next refresh : ∞ sec</span>`);
             }
 
             function fetchDate(nextDayOffset) {
@@ -161,13 +206,48 @@
                 return date = dd + '-' + mm + '-' + yyyy;
             }
 
-            function callCowinAPI() {
+            function callCowinAPI(cityId) {
                 let currentDate = new Date();
                 $.ajax({
                    url: "https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict",
-                   data:{district_id:670, date:fetchDate(0)},
+                   data:{district_id:cityId, date:fetchDate(0)},
                    success:function(data) {
                         filterResponse(data);
+                   },
+                   error:function(data) {
+                       toast('Cannot fetch data!');
+                   }
+                });
+            }
+
+            function getStates() {
+                $.ajax({
+                   url: "https://cdn-api.co-vin.in/api/v2/admin/location/states",
+                   success:function(data) {
+                       let states = data.states;
+                       $('#states').append('<option value="" selected disabled>Select State</option>');
+                       states.forEach((obj) => {
+                            $('#states').append(`<option value="${obj.state_id}">${obj.state_name}</option>`);
+                       });
+                       $('#states').formSelect();
+                   },
+                   error:function(data) {
+                       toast('Cannot fetch data!');
+                   }
+                });
+            }
+
+            function getCities(stateId) {
+                $.ajax({
+                   url: "https://cdn-api.co-vin.in/api/v2/admin/location/districts/" + stateId,
+                   success:function(data) {
+                        $('#cities').find('option').remove().end();
+                       let districts = data.districts;
+                       $('#cities').append('<option value="" selected disabled>Select City</option>');
+                       districts.forEach((obj) => {
+                            $('#cities').append(`<option value="${obj.district_id}">${obj.district_name}</option>`);
+                       });
+                       $('#cities').formSelect();
                    },
                    error:function(data) {
                        toast('Cannot fetch data!');
