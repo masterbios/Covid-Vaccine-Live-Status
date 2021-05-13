@@ -21,7 +21,7 @@
     main {
         flex: 1 0 auto;
     }
-    .btn-div, /*.time-div*/ {
+    .btn-div {
         text-align:center;
         margin-top: 18px;
     }
@@ -59,10 +59,6 @@
                 </div>
             </div>
             <div class="row table-data hidden">
-                <!-- <div class="col s12 btn-div">
-                    <a class="waves-effect waves-light btn stop-refresh">stop</a>
-                </div> -->
-                <!-- <div class="col s12 time-div"></div> -->
                 <div class="col s12 m12 l10 xl10 offset-l1 offset-xl1 data-div">
                     <div class="card-panel data"></div>
                 </div>
@@ -79,8 +75,6 @@
             var minimumAgeLimit = 18;
 
             $('select').formSelect();
-            // apiCallDriver();
-            // updateTime();
             getStates();
 
             function apiCallDriver(cityId) {
@@ -98,12 +92,10 @@
                 refreshTime--;
                 if (refreshStatus) {
                     setTimeout(() => {
-                        // $('.time-div').html(`<h3><strong>Refreshing page in ${refreshTime} seconds!</strong></h3>`);
                         $('.time-div').text(`Next refresh : ${refreshTime} sec`);
                         updateTime();
                     }, 1000);
                 } else {
-                    // $('.time-div').html(`<h3><strong>Refreshing page in &#8734; seconds!</strong></h3>`);
                     $('.time-div').text(`Next refresh : ∞ sec`);
                 }
             }
